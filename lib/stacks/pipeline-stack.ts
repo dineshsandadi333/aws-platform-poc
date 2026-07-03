@@ -28,6 +28,7 @@ export class PipelineStack extends cdk.Stack {
         STAGE: { value: config.stage },
         SPRING_API_REPOSITORY_URI: { value: shared.springApiRepository.repositoryUri },
         PYTHON_WORKER_REPOSITORY_URI: { value: shared.pythonWorkerRepository.repositoryUri },
+        SPRING_API_IMAGE_TAG: { value: config.springApiImageTag },
       },
       buildSpec: codebuild.BuildSpec.fromObject({
         version: '0.2',
@@ -38,11 +39,22 @@ export class PipelineStack extends cdk.Stack {
             },
             commands: ['npm ci'],
           },
+          pre_build: {
+            commands: [
+              'echo Logging in to Amazon ECR...',
+              'aws --version',
+              'aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $SPRING_API_REPOSITORY_URI',
+            ],
+          },
           build: {
             commands: [
+              'echo Building Spring API image...',
+              'cd services/spring-api',
+              'docker build -t $SPRING_API_REPOSITORY_URI:$SPRING_API_IMAGE_TAG .',
+              'docker push $SPRING_API_REPOSITORY_URI:$SPRING_API_IMAGE_TAG',
+              'cd -',
               'npm run build',
               'npx cdk synth',
-              'echo "Build application images here once service Dockerfiles are present."',
             ],
           },
         },
@@ -59,6 +71,56 @@ export class PipelineStack extends cdk.Stack {
     synthProject.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['sts:GetCallerIdentity'],
+        resources: ['*'],
+      }),
+    );
+
+    // Deploy project: non-self-mutating deployment of application stacks only
+    const deployProject = new codebuild.PipelineProject(this, 'DeployProject', {
+      environment: {
+        buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
+      },
+      environmentVariables: {
+        PROJECT_NAME: { value: config.projectName },
+        STAGE: { value: config.stage },
+        SPRING_API_IMAGE_TAG: { value: config.springApiImageTag },
+        SPRING_API_REPOSITORY_URI: { value: shared.springApiRepository.repositoryUri },
+      },
+      buildSpec: codebuild.BuildSpec.fromObject({
+        version: '0.2',
+        phases: {
+          install: {
+            'runtime-versions': {
+              nodejs: 20,
+            },
+            commands: ['npm ci'],
+          },
+          build: {
+            commands: [
+              'echo Deploying application stacks...',
+              'npx cdk deploy SharedStack ApplicationStack --require-approval never -c springApiImageTag=$SPRING_API_IMAGE_TAG',
+            ],
+          },
+        },
+      }),
+    });
+
+    // Grant deploy project access needed to deploy stacks and read artifacts
+    shared.artifactsBucket.grantReadWrite(deployProject);
+    shared.springApiRepository.grantPull(deployProject);
+
+    deployProject.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'cloudformation:*',
+          'sts:*',
+          'ecs:*',
+          'ec2:*',
+          'elasticloadbalancing:*',
+          'iam:PassRole',
+          'iam:GetRole',
+          'iam:ListRoles',
+        ],
         resources: ['*'],
       }),
     );
@@ -87,6 +149,7 @@ export class PipelineStack extends cdk.Stack {
               owner: config.pipeline.repository.split('/')[0],
               repo: config.pipeline.repository.split('/')[1],
               branch: config.pipeline.branch,
+              triggerOnPush: true,
               output: sourceOutput,
             }),
           ],
@@ -99,6 +162,16 @@ export class PipelineStack extends cdk.Stack {
               project: synthProject,
               input: sourceOutput,
               outputs: [synthOutput],
+            }),
+          ],
+        },
+        {
+          stageName: 'Deploy',
+          actions: [
+            new actions.CodeBuildAction({
+              actionName: 'DeployApp',
+              project: deployProject,
+              input: synthOutput,
             }),
           ],
         },
