@@ -11,7 +11,7 @@ export interface PipelineStackProps extends cdk.StackProps {
   readonly config: PlatformConfig;
   readonly shared: SharedStack;
 }
-
+// Testing small commit
 export class PipelineStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: PipelineStackProps) {
     super(scope, id, props);
