@@ -39,7 +39,10 @@ export class PipelineStack extends cdk.Stack {
             },
             // Install dependencies without auditing or funding prompts.
             commands: [
-              'if [ -f package.json ]; then npm install --no-audit --no-fund; elif [ -f infrastructure/package.json ]; then (cd infrastructure && npm install --no-audit --no-fund); else echo "no package.json found"; exit 1; fi',
+              'pkgdir=$(find . -maxdepth 4 -name package.json | head -n 1)',
+              'if [ -z "$pkgdir" ]; then echo "no package.json found"; exit 1; fi',
+              'cd "$(dirname "$pkgdir")"',
+              'npm install --no-audit --no-fund',
             ],
           },
           pre_build: {
@@ -99,7 +102,10 @@ export class PipelineStack extends cdk.Stack {
               nodejs: 20,
             },
             commands: [
-              'if [ -f package.json ]; then npm install --no-audit --no-fund; elif [ -f infrastructure/package.json ]; then (cd infrastructure && npm install --no-audit --no-fund); else echo "no package.json found"; exit 1; fi',
+              'pkgdir=$(find . -maxdepth 4 -name package.json | head -n 1)',
+              'if [ -z "$pkgdir" ]; then echo "no package.json found"; exit 1; fi',
+              'cd "$(dirname "$pkgdir")"',
+              'npm install --no-audit --no-fund',
             ],
           },
           build: {
