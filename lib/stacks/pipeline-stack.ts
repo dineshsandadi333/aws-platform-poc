@@ -48,8 +48,10 @@ export class PipelineStack extends cdk.Stack {
           },
           build: {
             commands: [
-              'echo Building Spring API image...',
+              'echo Building Spring API jar with Maven...',
               'cd services/spring-api',
+              'mvn -B -DskipTests package',
+              "echo Building Spring API image (runtime base from ECR public)...",
               'docker build -t $SPRING_API_REPOSITORY_URI:$SPRING_API_IMAGE_TAG .',
               'docker push $SPRING_API_REPOSITORY_URI:$SPRING_API_IMAGE_TAG',
               'cd -',
