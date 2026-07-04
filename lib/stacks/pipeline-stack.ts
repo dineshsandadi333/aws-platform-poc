@@ -37,6 +37,7 @@ export class PipelineStack extends cdk.Stack {
             'runtime-versions': {
               nodejs: 20,
             },
+            // Install dependencies without auditing or funding prompts
             commands: ['npm install --no-audit --no-fund'],
           },
           pre_build: {
