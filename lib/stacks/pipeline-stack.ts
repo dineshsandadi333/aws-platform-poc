@@ -37,7 +37,7 @@ export class PipelineStack extends cdk.Stack {
             'runtime-versions': {
               nodejs: 20,
             },
-            commands: ['npm ci'],
+            commands: ['npm install --no-audit --no-fund'],
           },
           pre_build: {
             commands: [
@@ -95,7 +95,7 @@ export class PipelineStack extends cdk.Stack {
             'runtime-versions': {
               nodejs: 20,
             },
-            commands: ['npm ci'],
+            commands: ['npm install --no-audit --no-fund'],
           },
           build: {
             commands: [
