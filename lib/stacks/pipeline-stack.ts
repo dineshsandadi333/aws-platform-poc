@@ -37,7 +37,7 @@ export class PipelineStack extends cdk.Stack {
             'runtime-versions': {
               nodejs: 20,
             },
-            // Install dependencies without auditing or funding prompts
+            // Install dependencies without auditing or funding prompts.
             commands: [
               'if [ -f package.json ]; then npm install --no-audit --no-fund; elif [ -f infrastructure/package.json ]; then (cd infrastructure && npm install --no-audit --no-fund); else echo "no package.json found"; exit 1; fi',
             ],
